@@ -1,0 +1,22 @@
+# === 构建产物 ===
+run-cam/build/
+*.o
+*.d
+
+# === 运行时生成 ===
+cam.log
+
+# === 编辑器/IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === 系统文件 ===
+.DS_Store
+Thumbs.db
+
+# === 排除项目中其他非 run-cam 的内容 ===
+/cam-backend/
+/USB摄像头技术文档.md

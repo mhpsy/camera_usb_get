@@ -1,7 +1,12 @@
-# === 构建产物 ===
+# === run-cam 构建产物 ===
 run-cam/build/
 *.o
 *.d
+
+# === cam-backend 构建产物 ===
+cam-backend/cam-backend
+cam-backend/data/cam.db
+cam-backend/data/hls/
 
 # === 运行时生成 ===
 cam.log
@@ -16,7 +21,3 @@ cam.log
 # === 系统文件 ===
 .DS_Store
 Thumbs.db
-
-# === 排除项目中其他非 run-cam 的内容 ===
-/cam-backend/
-/USB摄像头技术文档.md

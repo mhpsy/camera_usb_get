@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  srs:
+    image: ossrs/srs:6
+    container_name: srs-server
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./srs.conf:/usr/local/srs/conf/srs.conf
+      - ../../data/hls:/usr/local/srs/objs/nginx/html/hls
+    command: ./objs/srs -c conf/srs.conf

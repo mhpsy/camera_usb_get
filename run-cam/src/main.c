@@ -34,8 +34,8 @@
 #include "xu_ctrl.h"
 #include "ffplay_ctrl.h"
 
-/* 设备参数 - 你的 SPCA2650 摄像头 */
-#define DEV_PATH  "/dev/video0"
+
+#define DEV_PATH  "/dev/video1"
 #define USB_VID   0x1bcf   /* Sunplus Innovation Technology Inc. */
 #define USB_PID   0x0b15   /* SPCA2650 PC Camera */
 #define LOG_FILE  "cam.log"
@@ -566,6 +566,6 @@ int main(void)
     LOG_I("程序退出");
     logger_close();
 
-    printf("\n再见！\n");
+    printf("\n\n\n\n----------------------\n\n\nbye！\n");
     return 0;
 }

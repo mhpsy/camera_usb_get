@@ -25,18 +25,18 @@
 #include "usb_desc.h"
 
 /* UVC XU 查询类型 */
-#define UVC_SET_CUR  0x01  /* 设置当前值 */
-#define UVC_GET_CUR  0x81  /* 获取当前值 */
-#define UVC_GET_MIN  0x82  /* 获取最小值 */
-#define UVC_GET_MAX  0x83  /* 获取最大值 */
-#define UVC_GET_RES  0x84  /* 获取分辨率(步长) */
-#define UVC_GET_LEN  0x85  /* 获取数据长度(字节数) */
-#define UVC_GET_INFO 0x86  /* 获取支持的操作(GET/SET) */
-#define UVC_GET_DEF  0x87  /* 获取默认值 */
+#define UVC_SET_CUR  0x01 /* 设置当前值 */
+#define UVC_GET_CUR  0x81 /* 获取当前值 */
+#define UVC_GET_MIN  0x82 /* 获取最小值 */
+#define UVC_GET_MAX  0x83 /* 获取最大值 */
+#define UVC_GET_RES  0x84 /* 获取分辨率(步长) */
+#define UVC_GET_LEN  0x85 /* 获取数据长度(字节数) */
+#define UVC_GET_INFO 0x86 /* 获取支持的操作(GET/SET) */
+#define UVC_GET_DEF  0x87 /* 获取默认值 */
 
 /* XU INFO 标志位 */
-#define UVC_CTRL_INFO_SUPPORTS_GET  (1 << 0)  /* 支持读取 */
-#define UVC_CTRL_INFO_SUPPORTS_SET  (1 << 1)  /* 支持写入 */
+#define UVC_CTRL_INFO_SUPPORTS_GET (1 << 0) /* 支持读取 */
+#define UVC_CTRL_INFO_SUPPORTS_SET (1 << 1) /* 支持写入 */
 
 /*
  * 探测一个XU的所有控制：
@@ -57,8 +57,7 @@ int xu_probe_controls(const char *dev_path, const xu_info_t *xu);
  * len: 数据长度（从 UVC_GET_LEN 获取）
  * query: 查询类型 (UVC_GET_CUR, UVC_GET_MIN 等)
  */
-int xu_get_value(const char *dev_path, uint8_t unit_id,
-                 uint8_t selector, uint8_t *data, uint16_t len, uint8_t query);
+int xu_get_value(const char *dev_path, uint8_t unit_id, uint8_t selector, uint8_t *data, uint16_t len, uint8_t query);
 
 /*
  * 设置某个XU控制的值
@@ -69,8 +68,7 @@ int xu_get_value(const char *dev_path, uint8_t unit_id,
  * data: 要写入的数据
  * len: 数据长度
  */
-int xu_set_value(const char *dev_path, uint8_t unit_id,
-                 uint8_t selector, const uint8_t *data, uint16_t len);
+int xu_set_value(const char *dev_path, uint8_t unit_id, uint8_t selector, const uint8_t *data, uint16_t len);
 
 /*
  * 探测所有XU的所有控制

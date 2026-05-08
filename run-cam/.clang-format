@@ -1,0 +1,52 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+
+# 函数定义大括号换行，控制语句大括号同行（Linux 内核风格）
+BreakBeforeBraces: Linux
+
+ColumnLimit: 120
+
+PointerAlignment: Right
+DerivePointerAlignment: false
+
+# 连续行对齐：枚举赋值、声明（变量名/注释）、宏定义、行尾续行符
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignConsecutiveMacros: true
+AlignTrailingComments: true
+AlignEscapedNewlines: Left
+AlignAfterOpenBracket: Align
+
+# 不让 clang-format 把短语句压成单行
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+
+# 不重排 #include 顺序，保留你手动分的组
+SortIncludes: false
+IncludeBlocks: Preserve
+
+# 注释相关
+ReflowComments: false
+SpacesBeforeTrailingComments: 4
+
+IndentCaseLabels: false
+MaxEmptyLinesToKeep: 2
+KeepEmptyLinesAtTheStartOfBlocks: true
+
+BinPackArguments: true
+BinPackParameters: true
+
+SpaceAfterCStyleCast: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpacesInSquareBrackets: false

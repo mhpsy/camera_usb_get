@@ -13,11 +13,11 @@
 
 /* ffplay 进程状态 */
 typedef struct {
-    pid_t    pid;              /* ffplay 进程ID，0表示未运行 */
-    uint32_t pixelformat;      /* 当前使用的像素格式 (V4L2 fourcc) */
-    uint32_t width;            /* 当前分辨率宽 */
-    uint32_t height;           /* 当前分辨率高 */
-    char     dev_path[64];     /* 设备路径 */
+    pid_t    pid;          /* ffplay 进程ID，0表示未运行 */
+    uint32_t pixelformat;  /* 当前使用的像素格式 (V4L2 fourcc) */
+    uint32_t width;        /* 当前分辨率宽 */
+    uint32_t height;       /* 当前分辨率高 */
+    char     dev_path[64]; /* 设备路径 */
 } ffplay_state_t;
 
 /*
@@ -26,8 +26,7 @@ typedef struct {
  * pixelformat: V4L2 fourcc (如 V4L2_PIX_FMT_MJPEG)
  * width, height: 分辨率
  */
-int ffplay_start(ffplay_state_t *state, const char *dev_path,
-                 uint32_t pixelformat, uint32_t width, uint32_t height);
+int ffplay_start(ffplay_state_t *state, const char *dev_path, uint32_t pixelformat, uint32_t width, uint32_t height);
 
 /*
  * 停止 ffplay 预览

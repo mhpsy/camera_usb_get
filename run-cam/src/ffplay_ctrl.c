@@ -26,16 +26,20 @@
 static const char *pixfmt_to_ffmpeg(uint32_t pixelformat)
 {
     switch (pixelformat) {
-    case V4L2_PIX_FMT_MJPEG:  return "mjpeg";
-    case V4L2_PIX_FMT_YUYV:   return "yuyv422";
-    case V4L2_PIX_FMT_NV12:   return "nv12";
-    case V4L2_PIX_FMT_H264:   return "h264";
-    default:                   return "mjpeg";
+    case V4L2_PIX_FMT_MJPEG:
+        return "mjpeg";
+    case V4L2_PIX_FMT_YUYV:
+        return "yuyv422";
+    case V4L2_PIX_FMT_NV12:
+        return "nv12";
+    case V4L2_PIX_FMT_H264:
+        return "h264";
+    default:
+        return "mjpeg";
     }
 }
 
-int ffplay_start(ffplay_state_t *state, const char *dev_path,
-                 uint32_t pixelformat, uint32_t width, uint32_t height)
+int ffplay_start(ffplay_state_t *state, const char *dev_path, uint32_t pixelformat, uint32_t width, uint32_t height)
 {
     /* 如果已经在运行，先停止 */
     if (state->pid > 0) {
@@ -43,7 +47,7 @@ int ffplay_start(ffplay_state_t *state, const char *dev_path,
     }
 
     const char *fmt_name = pixfmt_to_ffmpeg(pixelformat);
-    char size_str[32];
+    char        size_str[32];
     snprintf(size_str, sizeof(size_str), "%ux%u", width, height);
 
     LOG_I("启动 ffplay 预览:");
@@ -68,24 +72,18 @@ int ffplay_start(ffplay_state_t *state, const char *dev_path,
          * -window_title xxx   设置窗口标题（方便识别）
          * -loglevel warning   减少ffplay自身的输出
          */
-        execlp("ffplay", "ffplay",
-               "-f", "v4l2",
-               "-input_format", fmt_name,
-               "-video_size", size_str,
-               "-window_title", "UVC Camera Preview",
-               "-loglevel", "warning",
-               dev_path,
-               NULL);
+        execlp("ffplay", "ffplay", "-f", "v4l2", "-input_format", fmt_name, "-video_size", size_str, "-window_title",
+               "UVC Camera Preview", "-loglevel", "warning", dev_path, NULL);
 
         /* 如果exec失败 */
         _exit(127);
     }
 
     /* 父进程 */
-    state->pid = pid;
+    state->pid         = pid;
     state->pixelformat = pixelformat;
-    state->width = width;
-    state->height = height;
+    state->width       = width;
+    state->height      = height;
     strncpy(state->dev_path, dev_path, sizeof(state->dev_path) - 1);
 
     LOG_I("ffplay 已启动 (PID=%d)", pid);
@@ -135,9 +133,9 @@ int ffplay_restart(ffplay_state_t *state)
     }
 
     uint32_t pf = state->pixelformat;
-    uint32_t w = state->width;
-    uint32_t h = state->height;
-    char dev[64];
+    uint32_t w  = state->width;
+    uint32_t h  = state->height;
+    char     dev[64];
     strncpy(dev, state->dev_path, sizeof(dev) - 1);
     dev[sizeof(dev) - 1] = '\0';
 
@@ -148,7 +146,8 @@ int ffplay_restart(ffplay_state_t *state)
 
 int ffplay_is_running(const ffplay_state_t *state)
 {
-    if (state->pid <= 0) return 0;
+    if (state->pid <= 0)
+        return 0;
 
     /* 检查进程是否仍然存在 */
     if (kill(state->pid, 0) == 0) {

@@ -1,5 +1,6 @@
 # === run-cam 构建产物 ===
 run-cam/build/
+run-cam/compile_commands.json
 *.o
 *.d
 

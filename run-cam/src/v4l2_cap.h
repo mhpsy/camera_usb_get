@@ -22,9 +22,9 @@ typedef struct {
 
 /* 存储一个分辨率+帧率集合 */
 typedef struct {
-    uint32_t width;
-    uint32_t height;
-    int      interval_count;
+    uint32_t         width;
+    uint32_t         height;
+    int              interval_count;
     frame_interval_t intervals[16];
 } frame_size_t;
 
@@ -40,7 +40,7 @@ typedef struct {
 typedef struct {
     uint32_t id;
     char     name[32];
-    int32_t  type;       /* V4L2_CTRL_TYPE_xxx */
+    int32_t  type; /* V4L2_CTRL_TYPE_xxx */
     int32_t  minimum;
     int32_t  maximum;
     int32_t  step;
@@ -51,16 +51,16 @@ typedef struct {
 
 /* 完整的设备能力信息 */
 typedef struct {
-    char         driver[16];
-    char         card[32];
-    char         bus_info[32];
-    uint32_t     capabilities;
+    char     driver[16];
+    char     card[32];
+    char     bus_info[32];
+    uint32_t capabilities;
 
-    int          format_count;
+    int           format_count;
     format_info_t formats[16];
 
-    int          ctrl_count;
-    ctrl_info_t  ctrls[64];
+    int         ctrl_count;
+    ctrl_info_t ctrls[64];
 } v4l2_cap_info_t;
 
 /*

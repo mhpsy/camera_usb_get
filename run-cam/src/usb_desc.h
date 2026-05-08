@@ -18,33 +18,33 @@
  */
 
 /* === 视频控制(Video Control, VC)接口描述符子类型 === */
-#define UVC_VC_HEADER            0x01  /* VC接口头：包含UVC版本、时钟频率等全局信息 */
-#define UVC_VC_INPUT_TERMINAL    0x02  /* 输入终端：数据的来源，如摄像头传感器 */
-#define UVC_VC_OUTPUT_TERMINAL   0x03  /* 输出终端：数据的去处，通常是USB流 */
-#define UVC_VC_SELECTOR_UNIT     0x04  /* 选择单元：可在多个输入中选择一个 */
-#define UVC_VC_PROCESSING_UNIT   0x05  /* 处理单元：提供亮度/对比度/饱和度等图像处理 */
-#define UVC_VC_EXTENSION_UNIT    0x06  /* 扩展单元(XU)：厂商私有功能，如LED控制、HDR等 */
+#define UVC_VC_HEADER          0x01 /* VC接口头：包含UVC版本、时钟频率等全局信息 */
+#define UVC_VC_INPUT_TERMINAL  0x02 /* 输入终端：数据的来源，如摄像头传感器 */
+#define UVC_VC_OUTPUT_TERMINAL 0x03 /* 输出终端：数据的去处，通常是USB流 */
+#define UVC_VC_SELECTOR_UNIT   0x04 /* 选择单元：可在多个输入中选择一个 */
+#define UVC_VC_PROCESSING_UNIT 0x05 /* 处理单元：提供亮度/对比度/饱和度等图像处理 */
+#define UVC_VC_EXTENSION_UNIT  0x06 /* 扩展单元(XU)：厂商私有功能，如LED控制、HDR等 */
 
 /* === 视频流(Video Streaming, VS)接口描述符子类型 === */
-#define UVC_VS_INPUT_HEADER      0x01  /* VS输入头：描述流的格式数量和端点 */
-#define UVC_VS_OUTPUT_HEADER     0x02  /* VS输出头 */
+#define UVC_VS_INPUT_HEADER        0x01 /* VS输入头：描述流的格式数量和端点 */
+#define UVC_VS_OUTPUT_HEADER       0x02 /* VS输出头 */
 #define UVC_VS_FORMAT_UNCOMPRESSED 0x04 /* 未压缩格式（如YUY2, NV12） */
 #define UVC_VS_FRAME_UNCOMPRESSED  0x05 /* 未压缩帧（分辨率+帧率） */
-#define UVC_VS_FORMAT_MJPEG      0x06  /* MJPEG格式 */
-#define UVC_VS_FRAME_MJPEG       0x07  /* MJPEG帧（分辨率+帧率） */
-#define UVC_VS_FORMAT_FRAME_BASED 0x10 /* 基于帧的格式（如H.264） */
-#define UVC_VS_FRAME_FRAME_BASED  0x11 /* 基于帧的帧描述符 */
-#define UVC_VS_COLOR_FORMAT      0x0D  /* 颜色匹配描述符 */
+#define UVC_VS_FORMAT_MJPEG        0x06 /* MJPEG格式 */
+#define UVC_VS_FRAME_MJPEG         0x07 /* MJPEG帧（分辨率+帧率） */
+#define UVC_VS_FORMAT_FRAME_BASED  0x10 /* 基于帧的格式（如H.264） */
+#define UVC_VS_FRAME_FRAME_BASED   0x11 /* 基于帧的帧描述符 */
+#define UVC_VS_COLOR_FORMAT        0x0D /* 颜色匹配描述符 */
 
 /*
  * 存储解析后的扩展单元信息
  */
 typedef struct {
-    uint8_t  unit_id;        /* 单元ID，用于后续XU控制命令中标识目标 */
-    uint8_t  guid[16];       /* 全局唯一标识符，标识XU的功能集 */
-    uint8_t  num_controls;   /* 该XU支持的控制数量 */
-    uint8_t  source_id;      /* 数据源ID（上游单元） */
-    uint32_t bmControls;     /* 控制位图，每一位代表一个控制是否存在 */
+    uint8_t  unit_id;      /* 单元ID，用于后续XU控制命令中标识目标 */
+    uint8_t  guid[16];     /* 全局唯一标识符，标识XU的功能集 */
+    uint8_t  num_controls; /* 该XU支持的控制数量 */
+    uint8_t  source_id;    /* 数据源ID（上游单元） */
+    uint32_t bmControls;   /* 控制位图，每一位代表一个控制是否存在 */
 } xu_info_t;
 
 #define MAX_XU_COUNT 8

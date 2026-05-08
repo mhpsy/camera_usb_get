@@ -7,7 +7,6 @@
 
 #include "logger.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
@@ -15,23 +14,19 @@
 #include <pthread.h>
 
 /* ANSI 终端颜色码 */
-#define COLOR_RESET   "\033[0m"
-#define COLOR_DEBUG   "\033[36m"    /* 青色 - 调试 */
-#define COLOR_INFO    "\033[32m"    /* 绿色 - 信息 */
-#define COLOR_WARN    "\033[33m"    /* 黄色 - 警告 */
-#define COLOR_ERROR   "\033[31m"    /* 红色 - 错误 */
+#define COLOR_RESET "\033[0m"
+#define COLOR_DEBUG "\033[36m" /* 青色 - 调试 */
+#define COLOR_INFO  "\033[32m" /* 绿色 - 信息 */
+#define COLOR_WARN  "\033[33m" /* 黄色 - 警告 */
+#define COLOR_ERROR "\033[31m" /* 红色 - 错误 */
 
-static FILE *g_log_fp = NULL;           /* 日志文件句柄 */
-static log_level_t g_min_level = LOG_LEVEL_DEBUG;
+static FILE           *g_log_fp    = NULL; /* 日志文件句柄 */
+static log_level_t     g_min_level = LOG_LEVEL_DEBUG;
 static pthread_mutex_t g_log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static const char *level_str[] = {
-    "DEBUG", "INFO ", "WARN ", "ERROR"
-};
+static const char *level_str[] = {"DEBUG", "INFO ", "WARN ", "ERROR"};
 
-static const char *level_color[] = {
-    COLOR_DEBUG, COLOR_INFO, COLOR_WARN, COLOR_ERROR
-};
+static const char *level_color[] = {COLOR_DEBUG, COLOR_INFO, COLOR_WARN, COLOR_ERROR};
 
 int logger_init(const char *log_file_path, log_level_t min_level)
 {
@@ -64,8 +59,7 @@ void logger_set_level(log_level_t level)
     g_min_level = level;
 }
 
-void logger_log(log_level_t level, const char *file, int line,
-                const char *fmt, ...)
+void logger_log(log_level_t level, const char *file, int line, const char *fmt, ...)
 {
     if (level < g_min_level)
         return;
@@ -81,16 +75,15 @@ void logger_log(log_level_t level, const char *file, int line,
 
     /* 提取文件名（去掉路径） */
     const char *basename = strrchr(file, '/');
-    basename = basename ? basename + 1 : file;
+    basename             = basename ? basename + 1 : file;
 
     va_list ap;
 
     pthread_mutex_lock(&g_log_mutex);
 
     /* 输出到终端（带颜色） */
-    fprintf(stderr, "%s[%s.%03ld] [%s] [%s:%d] ",
-            level_color[level], time_buf, tv.tv_usec / 1000,
-            level_str[level], basename, line);
+    fprintf(stderr, "%s[%s.%03ld] [%s] [%s:%d] ", level_color[level], time_buf, tv.tv_usec / 1000, level_str[level],
+            basename, line);
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
@@ -98,9 +91,7 @@ void logger_log(log_level_t level, const char *file, int line,
 
     /* 输出到日志文件（无颜色） */
     if (g_log_fp) {
-        fprintf(g_log_fp, "[%s.%03ld] [%s] [%s:%d] ",
-                time_buf, tv.tv_usec / 1000,
-                level_str[level], basename, line);
+        fprintf(g_log_fp, "[%s.%03ld] [%s] [%s:%d] ", time_buf, tv.tv_usec / 1000, level_str[level], basename, line);
         va_start(ap, fmt);
         vfprintf(g_log_fp, fmt, ap);
         va_end(ap);
@@ -111,8 +102,7 @@ void logger_log(log_level_t level, const char *file, int line,
     pthread_mutex_unlock(&g_log_mutex);
 }
 
-void logger_hexdump(log_level_t level, const char *label,
-                    const unsigned char *data, int len)
+void logger_hexdump(log_level_t level, const char *label, const unsigned char *data, int len)
 {
     if (level < g_min_level)
         return;
@@ -121,7 +111,7 @@ void logger_hexdump(log_level_t level, const char *label,
 
     char line[128];
     char ascii[17];
-    int offset = 0;
+    int  offset = 0;
 
     for (int i = 0; i < len; i++) {
         if (i % 16 == 0) {
@@ -144,7 +134,8 @@ void logger_hexdump(log_level_t level, const char *label,
     /* 处理最后不满16字节的行 */
     if (len > 0) {
         int remain = len % 16;
-        if (remain == 0) remain = 16;
+        if (remain == 0)
+            remain = 16;
         ascii[remain] = '\0';
         /* 填充空格对齐 */
         for (int i = remain; i < 16; i++)

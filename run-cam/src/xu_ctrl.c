@@ -37,16 +37,15 @@
 #include <linux/usb/video.h>
 #include <linux/uvcvideo.h>
 
-static int xu_query(int fd, uint8_t unit_id, uint8_t selector,
-                    uint8_t query, uint8_t *data, uint16_t size)
+static int xu_query(int fd, uint8_t unit_id, uint8_t selector, uint8_t query, uint8_t *data, uint16_t size)
 {
     struct uvc_xu_control_query xctrl;
     memset(&xctrl, 0, sizeof(xctrl));
-    xctrl.unit = unit_id;
+    xctrl.unit     = unit_id;
     xctrl.selector = selector;
-    xctrl.query = query;
-    xctrl.size = size;
-    xctrl.data = data;
+    xctrl.query    = query;
+    xctrl.size     = size;
+    xctrl.data     = data;
 
     int ret;
     do {
@@ -59,15 +58,24 @@ static int xu_query(int fd, uint8_t unit_id, uint8_t selector,
 static const char *query_name(uint8_t query)
 {
     switch (query) {
-    case UVC_SET_CUR:  return "SET_CUR(设置当前值)";
-    case UVC_GET_CUR:  return "GET_CUR(获取当前值)";
-    case UVC_GET_MIN:  return "GET_MIN(获取最小值)";
-    case UVC_GET_MAX:  return "GET_MAX(获取最大值)";
-    case UVC_GET_RES:  return "GET_RES(获取步长)";
-    case UVC_GET_LEN:  return "GET_LEN(获取数据长度)";
-    case UVC_GET_INFO: return "GET_INFO(获取能力)";
-    case UVC_GET_DEF:  return "GET_DEF(获取默认值)";
-    default:           return "UNKNOWN";
+    case UVC_SET_CUR:
+        return "SET_CUR(设置当前值)";
+    case UVC_GET_CUR:
+        return "GET_CUR(获取当前值)";
+    case UVC_GET_MIN:
+        return "GET_MIN(获取最小值)";
+    case UVC_GET_MAX:
+        return "GET_MAX(获取最大值)";
+    case UVC_GET_RES:
+        return "GET_RES(获取步长)";
+    case UVC_GET_LEN:
+        return "GET_LEN(获取数据长度)";
+    case UVC_GET_INFO:
+        return "GET_INFO(获取能力)";
+    case UVC_GET_DEF:
+        return "GET_DEF(获取默认值)";
+    default:
+        return "UNKNOWN";
     }
 }
 
@@ -120,8 +128,7 @@ int xu_probe_controls(const char *dev_path, const xu_info_t *xu)
         if (xu_query(fd, xu->unit_id, selector, UVC_GET_INFO, info_buf, 1) < 0) {
             LOG_W("    GET_INFO 失败: %s", strerror(errno));
         } else {
-            LOG_I("    能力标志 = 0x%02x [%s%s]", info_buf[0],
-                  (info_buf[0] & UVC_CTRL_INFO_SUPPORTS_GET) ? "可读" : "",
+            LOG_I("    能力标志 = 0x%02x [%s%s]", info_buf[0], (info_buf[0] & UVC_CTRL_INFO_SUPPORTS_GET) ? "可读" : "",
                   (info_buf[0] & UVC_CTRL_INFO_SUPPORTS_SET) ? " 可写" : "");
         }
 
@@ -134,14 +141,11 @@ int xu_probe_controls(const char *dev_path, const xu_info_t *xu)
 
         /* Step 3: 尝试读取各种值 */
         struct {
-            uint8_t query;
+            uint8_t     query;
             const char *label;
         } queries[] = {
-            { UVC_GET_CUR, "当前值(CUR)" },
-            { UVC_GET_MIN, "最小值(MIN)" },
-            { UVC_GET_MAX, "最大值(MAX)" },
-            { UVC_GET_RES, "步长(RES)" },
-            { UVC_GET_DEF, "默认值(DEF)" },
+            {UVC_GET_CUR, "当前值(CUR)"}, {UVC_GET_MIN, "最小值(MIN)"}, {UVC_GET_MAX, "最大值(MAX)"},
+            {UVC_GET_RES, "步长(RES)"},   {UVC_GET_DEF, "默认值(DEF)"},
         };
 
         for (int q = 0; q < 5; q++) {
@@ -154,8 +158,7 @@ int xu_probe_controls(const char *dev_path, const xu_info_t *xu)
                     uint64_t val = 0;
                     for (int b = 0; b < data_len && b < 8; b++)
                         val |= (uint64_t)data[b] << (8 * b);
-                    LOG_I("    %s = %lu (0x%lx)", queries[q].label,
-                          (unsigned long)val, (unsigned long)val);
+                    LOG_I("    %s = %lu (0x%lx)", queries[q].label, (unsigned long)val, (unsigned long)val);
                 } else {
                     LOG_I("    %s:", queries[q].label);
                 }
@@ -171,8 +174,7 @@ int xu_probe_controls(const char *dev_path, const xu_info_t *xu)
     return 0;
 }
 
-int xu_get_value(const char *dev_path, uint8_t unit_id,
-                 uint8_t selector, uint8_t *data, uint16_t len, uint8_t query)
+int xu_get_value(const char *dev_path, uint8_t unit_id, uint8_t selector, uint8_t *data, uint16_t len, uint8_t query)
 {
     int fd = open(dev_path, O_RDWR);
     if (fd < 0) {
@@ -180,8 +182,7 @@ int xu_get_value(const char *dev_path, uint8_t unit_id,
         return -1;
     }
 
-    LOG_D("XU读取: unit=%u selector=%u query=%s len=%u",
-          unit_id, selector, query_name(query), len);
+    LOG_D("XU读取: unit=%u selector=%u query=%s len=%u", unit_id, selector, query_name(query), len);
 
     int ret = xu_query(fd, unit_id, selector, query, data, len);
     if (ret < 0) {
@@ -194,8 +195,7 @@ int xu_get_value(const char *dev_path, uint8_t unit_id,
     return ret;
 }
 
-int xu_set_value(const char *dev_path, uint8_t unit_id,
-                 uint8_t selector, const uint8_t *data, uint16_t len)
+int xu_set_value(const char *dev_path, uint8_t unit_id, uint8_t selector, const uint8_t *data, uint16_t len)
 {
     int fd = open(dev_path, O_RDWR);
     if (fd < 0) {

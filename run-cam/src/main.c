@@ -36,11 +36,16 @@
 #include "v4l2_cap.h"
 #include "xu_ctrl.h"
 #include "ffplay_ctrl.h"
+#include "esp32_compat.h"
 
 
-#define USB_VID  0x0bda /* Sunplus Innovation Technology Inc. */
-#define USB_PID  0x5846 /* SPCA2650 PC Camera */
+#define USB_VID  0x0bda /* Sunplus Innovation Technology Inc. (回退默认) */
+#define USB_PID  0x5846 /* SPCA2650 PC Camera (回退默认) */
 #define LOG_FILE "cam.log"
+
+/* 运行时目标摄像头 (启动时自动检测填充, 命令11可改选/手动指定) */
+static uint16_t g_target_vid = USB_VID;
+static uint16_t g_target_pid = USB_PID;
 
 /*
  * 当前选中的 V4L2 捕获节点路径。
@@ -61,7 +66,8 @@ static int             g_desc_done = 0; /* 是否已执行USB描述符dump */
 static int             g_cap_done  = 0; /* 是否已执行V4L2枚举 */
 
 /* readline 命令列表（用于Tab补全） */
-static const char *commands[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "help", "quit", "exit", "0", NULL};
+static const char *commands[] = {"1",  "2",  "3",    "4",    "5",    "6", "7",
+                                 "8",  "9",  "10",   "11",   "help", "quit", "exit", "0", NULL};
 
 /* readline 自定义补全生成器 */
 static char *command_generator(const char *text, int state)
@@ -179,6 +185,9 @@ static void print_menu(void)
     printf("║    9  - 停止ffplay预览                                      ║\n");
     printf("║   10  - 重启ffplay预览                                      ║\n");
     printf("║                                                             ║\n");
+    printf("║  [ESP32 适配]                                               ║\n");
+    printf("║   11  - 判断该摄像头能否用于鱼缸 ESP32                      ║\n");
+    printf("║                                                             ║\n");
     printf("║    0/quit - 退出                                            ║\n");
     printf("╚══════════════════════════════════════════════════════════════╝\n");
 
@@ -192,8 +201,8 @@ static void print_menu(void)
 /* ===== 功能1: USB描述符 ===== */
 static void cmd_usb_descriptors(void)
 {
-    LOG_I("开始读取USB描述符 (VID=0x%04x PID=0x%04x)...", USB_VID, USB_PID);
-    if (usb_desc_dump(USB_VID, USB_PID, &g_desc_info) == 0) {
+    LOG_I("开始读取USB描述符 (VID=0x%04x PID=0x%04x)...", g_target_vid, g_target_pid);
+    if (usb_desc_dump(g_target_vid, g_target_pid, &g_desc_info) == 0) {
         g_desc_done = 1;
         printf("\n  USB描述符读取完成。发现 %d 个扩展单元(XU)。\n", g_desc_info.xu_count);
     } else {
@@ -567,6 +576,63 @@ static void cmd_ffplay_start(void)
     printf("  无效编号。\n");
 }
 
+/* ===== 功能11: ESP32 兼容性判定 ===== */
+static void cmd_esp32_compat(void)
+{
+    /* 选目标: 自动检测; 多个或想换则让用户选/手动输入 */
+    usb_cam_cand_t cands[8];
+    int            nc = usb_find_cameras(cands, 8);
+    printf("\n  检测到 %d 个 UVC 摄像头:\n", nc);
+    for (int i = 0; i < nc; i++)
+        printf("    [%d] %04x:%04x \"%s\"\n", i + 1, cands[i].vid, cands[i].pid, cands[i].product);
+    printf("    [m] 手动输入 VID:PID(评估非 UVC 设备也用这个)\n");
+
+    char *in = readline("\n  选择编号或 m(直接回车=当前目标): ");
+    if (in && in[0] == 'm') {
+        free(in);
+        in            = readline("  输入 VID:PID(十六进制, 如 2ce3:3828): ");
+        unsigned v = 0, p = 0;
+        if (in && sscanf(in, "%x:%x", &v, &p) == 2) {
+            g_target_vid = (uint16_t)v;
+            g_target_pid = (uint16_t)p;
+        } else {
+            printf("  格式错误。\n");
+            free(in);
+            return;
+        }
+    } else if (in && in[0] >= '1' && in[0] <= '9') {
+        int idx = atoi(in);
+        if (idx >= 1 && idx <= nc) {
+            g_target_vid = cands[idx - 1].vid;
+            g_target_pid = cands[idx - 1].pid;
+        }
+    }
+    free(in);
+
+    printf("  目标: %04x:%04x\n", g_target_vid, g_target_pid);
+
+    /* 解析描述符(顺带捕获速度/端点/格式) */
+    usb_desc_info_t info;
+    if (usb_desc_dump(g_target_vid, g_target_pid, &info) != 0) {
+        printf("\n  读取 USB 描述符失败(设备未连接或无权限, 可 sudo 重试)。\n");
+        return;
+    }
+
+    /* 取产品名用于展示 */
+    char           product[64] = "";
+    usb_cam_cand_t cc[8];
+    int            n2 = usb_find_cameras(cc, 8);
+    for (int i = 0; i < n2; i++)
+        if (cc[i].vid == g_target_vid && cc[i].pid == g_target_pid) {
+            snprintf(product, sizeof(product), "%s", cc[i].product);
+            break;
+        }
+
+    esp32_compat_report_t rep;
+    esp32_compat_check(&info, &ESP32_DEFAULT_TARGET, &rep);
+    esp32_compat_print_report(&rep, g_target_vid, g_target_pid, product);
+}
+
 /* ===== 信号处理 ===== */
 static volatile int g_running = 1;
 
@@ -590,17 +656,34 @@ int main(void)
         return 1;
     }
 
+    /* 自动检测连接的 UVC 摄像头作为默认目标 (替换写死的 VID/PID) */
+    {
+        usb_cam_cand_t cands[8];
+        int            nc = usb_find_cameras(cands, 8);
+        if (nc == 1) {
+            g_target_vid = cands[0].vid;
+            g_target_pid = cands[0].pid;
+            LOG_I("自动检测到 UVC 摄像头: %04x:%04x \"%s\"", cands[0].vid, cands[0].pid, cands[0].product);
+        } else if (nc > 1) {
+            g_target_vid = cands[0].vid;
+            g_target_pid = cands[0].pid;
+            LOG_I("检测到 %d 个 UVC 摄像头, 默认用第一个 %04x:%04x (命令 11 可改选)", nc, cands[0].vid, cands[0].pid);
+        } else {
+            LOG_W("未自动检测到 UVC 摄像头, 回退默认 %04x:%04x (命令 11 可手动指定)", g_target_vid, g_target_pid);
+        }
+    }
+
     LOG_I("═══════════════════════════════════════════════════");
     LOG_I("  USB摄像头UVC探测工具 启动");
-    LOG_I("  目标 USB: VID=0x%04x PID=0x%04x", USB_VID, USB_PID);
+    LOG_I("  目标 USB: VID=0x%04x PID=0x%04x", g_target_vid, g_target_pid);
     LOG_I("  日志文件: %s", LOG_FILE);
     LOG_I("═══════════════════════════════════════════════════");
 
     /* 自动定位视频捕获节点 (避开 META_CAPTURE 元数据节点) */
-    if (find_capture_device(USB_VID, USB_PID, g_dev_path, sizeof(g_dev_path)) == 0) {
+    if (find_capture_device(g_target_vid, g_target_pid, g_dev_path, sizeof(g_dev_path)) == 0) {
         LOG_I("自动定位到 VIDEO_CAPTURE 节点: %s", g_dev_path);
     } else {
-        LOG_W("未找到 VID=0x%04x PID=0x%04x 的捕获节点, 使用默认 %s", USB_VID, USB_PID, g_dev_path);
+        LOG_W("未找到 VID=0x%04x PID=0x%04x 的捕获节点, 使用默认 %s", g_target_vid, g_target_pid, g_dev_path);
     }
 
     /* 初始化 ffplay 状态 */
@@ -660,6 +743,8 @@ int main(void)
             ffplay_stop(&g_ffplay);
         } else if (strcmp(cmd, "10") == 0) {
             ffplay_restart(&g_ffplay);
+        } else if (strcmp(cmd, "11") == 0) {
+            cmd_esp32_compat();
         } else {
             printf("  未知命令: %s (输入 help 查看菜单)\n", cmd);
         }

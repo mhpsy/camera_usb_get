@@ -109,4 +109,19 @@ int usb_desc_dump(uint16_t vid, uint16_t pid, usb_desc_info_t *info);
  */
 void usb_desc_guid_to_str(const uint8_t guid[16], char *buf, int buf_len);
 
+/*
+ * 一个 USB 摄像头候选(用于自动检测目标设备)
+ */
+typedef struct {
+    uint16_t vid, pid;
+    char     product[64];
+    int      is_uvc; /* 含 Video(0x0e)接口 */
+} usb_cam_cand_t;
+
+/*
+ * 扫描连接的 USB 设备,返回 UVC 摄像头候选(写入 out,最多 max 个),返回个数。
+ * 只自动收含 Video(0x0e)接口的标准 UVC 设备;非 UVC 设备靠手动指定 VID:PID 评估。
+ */
+int usb_find_cameras(usb_cam_cand_t *out, int max);
+
 #endif /* USB_DESC_H */

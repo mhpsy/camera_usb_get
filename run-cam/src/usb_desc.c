@@ -842,3 +842,59 @@ int usb_desc_dump(uint16_t vid, uint16_t pid, usb_desc_info_t *info)
     LOG_I("USB描述符dump完成");
     return 0;
 }
+
+/* ==============================
+ * 自动检测连接的 UVC 摄像头
+ * ============================== */
+
+int usb_find_cameras(usb_cam_cand_t *out, int max)
+{
+    libusb_context *ctx  = NULL;
+    libusb_device **list = NULL;
+    int             found = 0;
+
+    if (libusb_init(&ctx) < 0)
+        return 0;
+
+    ssize_t cnt = libusb_get_device_list(ctx, &list);
+    for (ssize_t i = 0; i < cnt && found < max; i++) {
+        struct libusb_device_descriptor dd;
+        if (libusb_get_device_descriptor(list[i], &dd) < 0)
+            continue;
+
+        struct libusb_config_descriptor *cfg = NULL;
+        if (libusb_get_active_config_descriptor(list[i], &cfg) < 0)
+            continue;
+
+        int is_uvc = 0;
+        for (int n = 0; n < cfg->bNumInterfaces && !is_uvc; n++) {
+            for (int a = 0; a < cfg->interface[n].num_altsetting; a++) {
+                if (cfg->interface[n].altsetting[a].bInterfaceClass == LIBUSB_CLASS_VIDEO) {
+                    is_uvc = 1;
+                    break;
+                }
+            }
+        }
+        libusb_free_config_descriptor(cfg);
+
+        if (!is_uvc)
+            continue; /* 只自动收 UVC 摄像头;非 UVC 设备靠手动指定 VID:PID */
+
+        usb_cam_cand_t *c = &out[found++];
+        c->vid            = dd.idVendor;
+        c->pid            = dd.idProduct;
+        c->is_uvc         = 1;
+        c->product[0]     = '\0';
+
+        libusb_device_handle *h = NULL;
+        if (libusb_open(list[i], &h) == 0) {
+            if (dd.iProduct)
+                libusb_get_string_descriptor_ascii(h, dd.iProduct, (unsigned char *)c->product, sizeof(c->product));
+            libusb_close(h);
+        }
+    }
+
+    libusb_free_device_list(list, 1);
+    libusb_exit(ctx);
+    return found;
+}

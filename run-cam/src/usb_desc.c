@@ -379,7 +379,7 @@ static void parse_vc_descriptor(const unsigned char *buf, int len, usb_desc_info
  * 解析类特定VS接口描述符
  * ============================== */
 
-static void parse_vs_descriptor(const unsigned char *buf, int len)
+static void parse_vs_descriptor(const unsigned char *buf, int len, usb_desc_info_t *info)
 {
     if (len < 3)
         return;
@@ -432,6 +432,14 @@ static void parse_vs_descriptor(const unsigned char *buf, int len)
         LOG_I("    bNumFrameDescriptors = %u (该格式下有多少种分辨率可选)", bNumFrameDescriptors);
         LOG_I("    bFlags               = 0x%02x (%s)", bFlags, (bFlags & 1) ? "固定大小采样" : "可变大小采样");
         LOG_I("    bDefaultFrameIndex   = %u (默认分辨率编号)", bDefaultFrameIndex);
+
+        /* 捕获格式条目(供 ESP32 兼容判定) */
+        if (info && info->format_count < 16) {
+            desc_format_t *f = &info->formats[info->format_count++];
+            f->is_mjpeg = 1;
+            memcpy(f->fourcc, "MJPG", 5);
+            f->frame_count = 0;
+        }
         break;
     }
 
@@ -484,6 +492,38 @@ static void parse_vs_descriptor(const unsigned char *buf, int len)
                 }
             }
         }
+
+        /* 把该帧追加到"当前格式"(最后一个格式条目),供 ESP32 兼容判定 */
+        if (info && info->format_count > 0) {
+            desc_format_t *f = &info->formats[info->format_count - 1];
+            if (f->frame_count < 32) {
+                desc_frame_t *fr = &f->frames[f->frame_count++];
+                fr->width          = wWidth;
+                fr->height         = wHeight;
+                fr->dwMaxBitRate   = dwMaxBitRate;
+                fr->interval_count = 0;
+                if (bFrameIntervalType == 0) {
+                    /* 连续区间: 记录 min/max 两个端点的 fps(若已解析) */
+                    if (len >= 38) {
+                        uint32_t dwMinFI = buf[26] | (buf[27] << 8) | (buf[28] << 16) | (buf[29] << 24);
+                        uint32_t dwMaxFI = buf[30] | (buf[31] << 8) | (buf[32] << 16) | (buf[33] << 24);
+                        if (dwMaxFI)
+                            fr->fps[fr->interval_count++] = 1e7 / dwMaxFI; /* 最低 fps */
+                        if (dwMinFI)
+                            fr->fps[fr->interval_count++] = 1e7 / dwMinFI; /* 最高 fps */
+                    }
+                } else {
+                    for (int n = 0; n < bFrameIntervalType && fr->interval_count < 16; n++) {
+                        int off = 26 + n * 4;
+                        if (off + 3 < len) {
+                            uint32_t fi = buf[off] | (buf[off + 1] << 8) | (buf[off + 2] << 16) | (buf[off + 3] << 24);
+                            if (fi)
+                                fr->fps[fr->interval_count++] = 1e7 / fi;
+                        }
+                    }
+                }
+            }
+        }
         break;
     }
 
@@ -509,6 +549,15 @@ static void parse_vs_descriptor(const unsigned char *buf, int len)
         LOG_I("    guidFormat           = %s", fmt_guid);
         LOG_I("    bBitsPerPixel        = %u", bBitsPerPixel);
         LOG_I("    bDefaultFrameIndex   = %u", bDefaultFrameIndex);
+
+        /* 捕获格式条目(未压缩, GUID 前 4 字节是可读 fourcc 如 YUY2) */
+        if (info && info->format_count < 16) {
+            desc_format_t *f = &info->formats[info->format_count++];
+            f->is_mjpeg      = 0;
+            memcpy(f->fourcc, &buf[5], 4);
+            f->fourcc[4]   = '\0';
+            f->frame_count = 0;
+        }
         break;
     }
 
@@ -599,6 +648,10 @@ int usb_desc_dump(uint16_t vid, uint16_t pid, usb_desc_info_t *info)
         libusb_exit(ctx);
         return -1;
     }
+
+    /* 捕获设备速度(供 ESP32 兼容判定: 过高速 hub 需高速设备) */
+    if (info)
+        info->usb_speed = libusb_get_device_speed(target);
 
     /* ===== 设备描述符 ===== */
     struct libusb_device_descriptor dev_desc;
@@ -719,7 +772,7 @@ int usb_desc_dump(uint16_t vid, uint16_t pid, usb_desc_info_t *info)
                             parse_vc_descriptor(p, bLen, info);
                         } else if (altsetting->bInterfaceSubClass == 2) {
                             /* 视频流接口的类特定描述符 */
-                            parse_vs_descriptor(p, bLen);
+                            parse_vs_descriptor(p, bLen, info);
                         }
                     } else if (bType == 0x25) {
                         LOG_I("  [CS_ENDPOINT] 类特定端点描述符, 长度=%d", bLen);
@@ -743,6 +796,22 @@ int usb_desc_dump(uint16_t vid, uint16_t pid, usb_desc_info_t *info)
                                                        : "中断(Interrupt)");
                 LOG_I("    wMaxPacketSize   = %u 字节", ep->wMaxPacketSize);
                 LOG_I("    bInterval        = %u", ep->bInterval);
+            }
+
+            /* 捕获视频流接口的 altsetting 端点信息(供 ESP32 兼容判定) */
+            if (info && altsetting->bInterfaceSubClass == 2) {
+                info->vs.present          = 1;
+                info->vs.interface_number = altsetting->bInterfaceNumber;
+                if (altsetting->bNumEndpoints > 0 && info->vs.alt_count < 16) {
+                    const struct libusb_endpoint_descriptor *e0 = &altsetting->endpoint[0];
+                    vs_altsetting_t                         *a  = &info->vs.alts[info->vs.alt_count++];
+                    a->alt_setting   = altsetting->bAlternateSetting;
+                    a->num_endpoints = altsetting->bNumEndpoints;
+                    a->ep_address    = e0->bEndpointAddress;
+                    a->transfer_type = e0->bmAttributes & 0x03;
+                    a->mps           = e0->wMaxPacketSize & 0x07FF;
+                    a->mult          = (e0->wMaxPacketSize >> 11) & 0x03;
+                }
             }
         }
     }

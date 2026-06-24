@@ -49,9 +49,45 @@ typedef struct {
 
 #define MAX_XU_COUNT 8
 
+/* 一个视频流(VS)altsetting 的端点摘要 */
 typedef struct {
-    int       xu_count;
-    xu_info_t xus[MAX_XU_COUNT];
+    uint8_t  alt_setting;   /* bAlternateSetting */
+    uint8_t  num_endpoints; /* 该 alt 端点数 —— UVC 要求 streaming alt 恰好 1 */
+    uint8_t  ep_address;    /* 第一个端点地址 */
+    uint8_t  transfer_type; /* bmAttributes&0x3: 0控制 1等时isoc 2批量bulk 3中断 */
+    uint16_t mps;           /* wMaxPacketSize 基础值(低 11 位) */
+    uint8_t  mult;          /* 高带宽乘子(HS isoc;每微帧 mult+1 个事务) */
+} vs_altsetting_t;
+
+typedef struct {
+    int             present;          /* 是否找到 VS(0x0e/0x02)接口 */
+    uint8_t         interface_number;
+    int             alt_count;
+    vs_altsetting_t alts[16];
+} vs_stream_info_t;
+
+/* 一种格式下的一个分辨率(含帧率与最大码率) */
+typedef struct {
+    uint16_t width, height;
+    uint32_t dwMaxBitRate;  /* bps,来自 FRAME 描述符,用于带宽估算 */
+    int      interval_count;
+    double   fps[16];       /* 由 dwFrameInterval(100ns)换算: 1e7/interval */
+} desc_frame_t;
+
+typedef struct {
+    int          is_mjpeg;  /* MJPEG=1,未压缩=0 */
+    char         fourcc[5]; /* "MJPG" 或未压缩 GUID 前 4 字符 */
+    int          frame_count;
+    desc_frame_t frames[32];
+} desc_format_t;
+
+typedef struct {
+    int              xu_count;
+    xu_info_t        xus[MAX_XU_COUNT];
+    int              usb_speed;     /* libusb_get_device_speed() 结果 */
+    vs_stream_info_t vs;            /* 新增:流接口端点 */
+    int              format_count;  /* 新增 */
+    desc_format_t    formats[16];   /* 新增:从 VS FORMAT/FRAME 描述符捕获 */
 } usb_desc_info_t;
 
 /*

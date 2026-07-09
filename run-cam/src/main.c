@@ -26,16 +26,20 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#ifdef __linux__
+#include <sys/ioctl.h>
 #include <linux/videodev2.h>
+#endif
 
 #include "logger.h"
 #include "usb_desc.h"
+#ifdef __linux__
 #include "v4l2_cap.h"
 #include "xu_ctrl.h"
 #include "ffplay_ctrl.h"
+#endif
 #include "esp32_compat.h"
 
 
@@ -60,10 +64,12 @@ static char g_dev_path[64] = "/dev/video0";
 
 /* 全局状态 */
 static usb_desc_info_t g_desc_info;     /* USB描述符中解析出的XU信息 */
+static int             g_desc_done = 0; /* 是否已执行USB描述符dump */
+#ifdef __linux__
 static v4l2_cap_info_t g_cap_info;      /* V4L2枚举结果 */
 static ffplay_state_t  g_ffplay;        /* ffplay进程状态 */
-static int             g_desc_done = 0; /* 是否已执行USB描述符dump */
 static int             g_cap_done  = 0; /* 是否已执行V4L2枚举 */
+#endif
 
 /* readline 命令列表（用于Tab补全） */
 static const char *commands[] = {"1",  "2",  "3",    "4",    "5",    "6", "7",
@@ -94,6 +100,7 @@ static char **command_completion(const char *text, int start, int end)
     return NULL;
 }
 
+#ifdef __linux__
 /*
  * 自动找到 VID/PID 匹配且支持 VIDEO_CAPTURE 的 V4L2 节点。
  *
@@ -158,6 +165,7 @@ static int find_capture_device(uint16_t vid, uint16_t pid, char *out_path, size_
     }
     return -1;
 }
+#endif /* __linux__ */
 
 /* 打印菜单 */
 static void print_menu(void)
@@ -191,10 +199,14 @@ static void print_menu(void)
     printf("║    0/quit - 退出                                            ║\n");
     printf("╚══════════════════════════════════════════════════════════════╝\n");
 
+#ifdef __linux__
     /* 显示ffplay状态 */
     if (ffplay_is_running(&g_ffplay)) {
         printf("  [ffplay 运行中 PID=%d | %ux%u]\n", g_ffplay.pid, g_ffplay.width, g_ffplay.height);
     }
+#else
+    printf("  ⚠ 当前为非 Linux(如 macOS)构建: 仅命令 1、11 可用; 2-10 依赖 Linux V4L2/UVC, 不支持。\n");
+#endif
     printf("\n");
 }
 
@@ -210,6 +222,8 @@ static void cmd_usb_descriptors(void)
         printf("  提示: 可能需要 sudo 运行，或将用户加入 plugdev 组。\n");
     }
 }
+
+#ifdef __linux__
 
 /* ===== 功能2: V4L2枚举 ===== */
 static void cmd_v4l2_enumerate(void)
@@ -576,6 +590,38 @@ static void cmd_ffplay_start(void)
     printf("  无效编号。\n");
 }
 
+/* 命令 9/10 的薄封装, 让主循环分发在两平台统一 */
+static void cmd_ffplay_stop(void)
+{
+    ffplay_stop(&g_ffplay);
+}
+static void cmd_ffplay_restart(void)
+{
+    ffplay_restart(&g_ffplay);
+}
+
+#else /* !__linux__ : macOS / 非 Linux 桩实现 */
+
+/* V4L2 / UVC 扩展单元 / ffplay 均依赖 Linux 内核接口, 此构建下统一给出提示 */
+static void linux_only_notice(const char *what)
+{
+    printf("\n  [仅 Linux] %s 依赖 V4L2/UVC 内核接口, 当前非 Linux 构建不支持。\n", what);
+    printf("  本构建可用: 1 (USB描述符) 与 11 (ESP32兼容检查)。\n");
+    printf("  需要完整功能请在 Linux, 或通过远程/虚拟机的 Linux 环境运行。\n");
+}
+
+static void cmd_v4l2_enumerate(void) { linux_only_notice("V4L2 枚举"); }
+static void cmd_list_formats(void) { linux_only_notice("列出格式"); }
+static void cmd_modify_control(void) { linux_only_notice("修改控制项"); }
+static void cmd_xu_probe(void) { linux_only_notice("XU 探测"); }
+static void cmd_xu_read(void) { linux_only_notice("XU 读取"); }
+static void cmd_xu_write(void) { linux_only_notice("XU 写入"); }
+static void cmd_ffplay_start(void) { linux_only_notice("ffplay 预览"); }
+static void cmd_ffplay_stop(void) { linux_only_notice("停止 ffplay"); }
+static void cmd_ffplay_restart(void) { linux_only_notice("重启 ffplay"); }
+
+#endif /* __linux__ */
+
 /* ===== 功能11: ESP32 兼容性判定 ===== */
 static void cmd_esp32_compat(void)
 {
@@ -679,6 +725,7 @@ int main(void)
     LOG_I("  日志文件: %s", LOG_FILE);
     LOG_I("═══════════════════════════════════════════════════");
 
+#ifdef __linux__
     /* 自动定位视频捕获节点 (避开 META_CAPTURE 元数据节点) */
     if (find_capture_device(g_target_vid, g_target_pid, g_dev_path, sizeof(g_dev_path)) == 0) {
         LOG_I("自动定位到 VIDEO_CAPTURE 节点: %s", g_dev_path);
@@ -688,6 +735,7 @@ int main(void)
 
     /* 初始化 ffplay 状态 */
     memset(&g_ffplay, 0, sizeof(g_ffplay));
+#endif
 
     /* 配置 readline */
     rl_attempted_completion_function = command_completion;
@@ -740,9 +788,9 @@ int main(void)
         } else if (strcmp(cmd, "8") == 0) {
             cmd_ffplay_start();
         } else if (strcmp(cmd, "9") == 0) {
-            ffplay_stop(&g_ffplay);
+            cmd_ffplay_stop();
         } else if (strcmp(cmd, "10") == 0) {
-            ffplay_restart(&g_ffplay);
+            cmd_ffplay_restart();
         } else if (strcmp(cmd, "11") == 0) {
             cmd_esp32_compat();
         } else {
@@ -753,9 +801,11 @@ int main(void)
     }
 
     /* 清理 */
+#ifdef __linux__
     if (ffplay_is_running(&g_ffplay)) {
         ffplay_stop(&g_ffplay);
     }
+#endif
 
     LOG_I("程序退出");
     logger_close();

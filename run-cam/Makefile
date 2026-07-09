@@ -19,10 +19,14 @@ ifeq ($(UNAME_S),Darwin)
     # === macOS: 仅构建跨平台部分(命令 1 USB描述符 / 命令 11 ESP32兼容) ===
     # readline 与 libusb 为 keg-only, 需显式给出 Homebrew 前缀路径。
     SRCS = $(filter-out $(LINUX_ONLY_SRCS), $(ALL_SRCS))
-    BREW_READLINE := $(shell brew --prefix readline 2>/dev/null)
-    BREW_LIBUSB := $(shell brew --prefix libusb 2>/dev/null)
+    # 可被命令行覆盖(交叉编译 x86_64 时指向 Rosetta 的 /usr/local Homebrew)
+    BREW_READLINE ?= $(shell brew --prefix readline 2>/dev/null)
+    BREW_LIBUSB ?= $(shell brew --prefix libusb 2>/dev/null)
     # 源码用 <libusb-1.0/libusb.h>, 故 include 路径取 Homebrew 的 include 父目录
     CFLAGS += -I$(BREW_READLINE)/include -I$(BREW_LIBUSB)/include
+    # ARCHFLAGS 用于交叉编译, 如 "-arch x86_64" / "-arch arm64" (空=本机架构)。
+    # 链接规则里也用了 $(CFLAGS), 故加在此处对编译与链接同时生效。
+    CFLAGS += $(ARCHFLAGS)
   ifeq ($(DIST),1)
     # 分发用(CI): 静态链接 libusb/readline, 运行期只依赖系统库(ncurses/系统框架),
     # 同事无需安装 Homebrew 即可直接运行。

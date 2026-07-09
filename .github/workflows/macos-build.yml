@@ -1,7 +1,11 @@
 name: build-macos
 
-# 构建 run-cam 的 macOS 自包含二进制(静态链接 libusb/readline),
-# 产出可直接下载发给同事的可执行文件(arm64 / x86_64 / universal 三种)。
+# 在 Apple Silicon(arm64) runner 上构建 run-cam 的 macOS 自包含二进制:
+#   - arm64 本机编译
+#   - x86_64 通过 Rosetta 的 x86_64 Homebrew 交叉编译
+#   - lipo 合成 universal
+# 静态链接 libusb/readline, 运行期只依赖系统库, 可直接发给同事运行。
+# 不使用容量紧张的 Intel(macos-13) runner。
 
 on:
   push:
@@ -16,77 +20,65 @@ permissions:
 
 jobs:
   build:
-    name: build (${{ matrix.arch }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-14   # Apple Silicon
-            arch: arm64
-          - runner: macos-13   # Intel
-            arch: x86_64
-    runs-on: ${{ matrix.runner }}
+    name: build (arm64 + x86_64 -> universal)
+    runs-on: macos-14
     defaults:
       run:
         working-directory: run-cam
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install libusb & readline
+      - name: Install arm64 deps (native Homebrew)
         run: brew install libusb readline
 
-      - name: Build self-contained binary (DIST=1 静态链接)
-        run: make DIST=1
+      - name: Ensure Rosetta 2
+        run: sudo softwareupdate --install-rosetta --agree-to-license || true
 
-      - name: Verify no Homebrew runtime dependency
+      - name: Install x86_64 Homebrew + deps (Rosetta)
         run: |
-          echo "otool -L build/uvc-tool:"
-          otool -L build/uvc-tool
-          if otool -L build/uvc-tool | grep -E '/opt/homebrew|/usr/local/opt|/usr/local/Cellar'; then
-            echo "::error::二进制仍依赖 Homebrew 动态库, 静态链接失败"
+          if [ ! -x /usr/local/bin/brew ]; then
+            arch -x86_64 /bin/bash -c "NONINTERACTIVE=1 $(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
+          arch -x86_64 /usr/local/bin/brew install libusb readline
+
+      - name: Build arm64 slice
+        run: |
+          make clean
+          make DIST=1 ARCHFLAGS="-arch arm64"
+          mv build/uvc-tool "$GITHUB_WORKSPACE/uvc-tool-macos-arm64"
+
+      - name: Build x86_64 slice (cross-compile via Rosetta Homebrew)
+        run: |
+          make clean
+          make DIST=1 ARCHFLAGS="-arch x86_64" \
+               BREW_LIBUSB=/usr/local/opt/libusb \
+               BREW_READLINE=/usr/local/opt/readline
+          mv build/uvc-tool "$GITHUB_WORKSPACE/uvc-tool-macos-x86_64"
+
+      - name: lipo universal + verify
+        working-directory: ${{ github.workspace }}
+        run: |
+          lipo -create uvc-tool-macos-arm64 uvc-tool-macos-x86_64 -output uvc-tool-macos-universal
+          chmod +x uvc-tool-macos-universal
+          echo "--- lipo -info ---"; lipo -info uvc-tool-macos-universal
+          echo "--- file ---";      file uvc-tool-macos-universal
+          echo "--- otool -L ---";  otool -L uvc-tool-macos-universal
+          if otool -L uvc-tool-macos-universal | grep -E '/opt/homebrew|/usr/local/opt|/usr/local/Cellar'; then
+            echo "::error::universal 仍依赖 Homebrew 动态库, 静态链接失败"
             exit 1
           fi
-          echo "OK: 仅依赖系统库, 可脱离 Homebrew 运行。"
+          echo "OK: universal 仅依赖系统库。"
 
-      - name: Smoke test (启动并退出)
-        run: printf '0\n' | ./build/uvc-tool || true
+      - name: Smoke test (arm64 本机启动退出)
+        working-directory: ${{ github.workspace }}
+        run: printf '0\n' | ./uvc-tool-macos-arm64 || true
 
-      - name: Rename per arch
-        run: mv build/uvc-tool build/uvc-tool-macos-${{ matrix.arch }}
-
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: uvc-tool-macos-${{ matrix.arch }}
-          path: run-cam/build/uvc-tool-macos-${{ matrix.arch }}
-          if-no-files-found: error
-
-  universal:
-    name: universal (arm64 + x86_64)
-    needs: build
-    runs-on: macos-14
-    steps:
-      - name: Download arch binaries
-        uses: actions/download-artifact@v4
-        with:
-          pattern: uvc-tool-macos-*
-          path: dist
-          merge-multiple: true
-
-      - name: lipo into universal binary
-        run: |
-          ls -la dist
-          lipo -create \
-            dist/uvc-tool-macos-arm64 \
-            dist/uvc-tool-macos-x86_64 \
-            -output dist/uvc-tool-macos-universal
-          chmod +x dist/uvc-tool-macos-universal
-          echo "--- file ---"; file dist/uvc-tool-macos-universal
-          echo "--- lipo -info ---"; lipo -info dist/uvc-tool-macos-universal
-
-      - name: Upload universal artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: uvc-tool-macos-universal
-          path: dist/uvc-tool-macos-universal
+          name: uvc-tool-macos
+          path: |
+            uvc-tool-macos-arm64
+            uvc-tool-macos-x86_64
+            uvc-tool-macos-universal
           if-no-files-found: error

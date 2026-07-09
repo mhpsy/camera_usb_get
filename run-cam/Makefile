@@ -21,7 +21,8 @@ ifeq ($(UNAME_S),Darwin)
     SRCS = $(filter-out $(LINUX_ONLY_SRCS), $(ALL_SRCS))
     BREW_READLINE := $(shell brew --prefix readline 2>/dev/null)
     BREW_LIBUSB := $(shell brew --prefix libusb 2>/dev/null)
-    CFLAGS += -I$(BREW_READLINE)/include -I$(BREW_LIBUSB)/include/libusb-1.0
+    # 源码用 <libusb-1.0/libusb.h>, 故 include 路径取 Homebrew 的 include 父目录
+    CFLAGS += -I$(BREW_READLINE)/include -I$(BREW_LIBUSB)/include
   ifeq ($(DIST),1)
     # 分发用(CI): 静态链接 libusb/readline, 运行期只依赖系统库(ncurses/系统框架),
     # 同事无需安装 Homebrew 即可直接运行。

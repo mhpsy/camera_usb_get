@@ -22,7 +22,17 @@ ifeq ($(UNAME_S),Darwin)
     BREW_READLINE := $(shell brew --prefix readline 2>/dev/null)
     BREW_LIBUSB := $(shell brew --prefix libusb 2>/dev/null)
     CFLAGS += -I$(BREW_READLINE)/include -I$(BREW_LIBUSB)/include/libusb-1.0
+  ifeq ($(DIST),1)
+    # 分发用(CI): 静态链接 libusb/readline, 运行期只依赖系统库(ncurses/系统框架),
+    # 同事无需安装 Homebrew 即可直接运行。
+    LDFLAGS = $(BREW_LIBUSB)/lib/libusb-1.0.a \
+              $(BREW_READLINE)/lib/libreadline.a $(BREW_READLINE)/lib/libhistory.a \
+              -lncurses \
+              -framework CoreFoundation -framework IOKit -framework Security -lobjc
+  else
+    # 本地开发: 动态链接 Homebrew 库(需本机已 brew install libusb readline)
     LDFLAGS = -L$(BREW_READLINE)/lib -L$(BREW_LIBUSB)/lib -lreadline -lusb-1.0
+  endif
 else
     # === Linux: 全量构建 ===
     SRCS = $(ALL_SRCS)
